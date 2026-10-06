@@ -91,8 +91,8 @@ grep -F '한/영' "$work/output" >/dev/null ||
   fail "Korean input names the 한/영 key as the toggle" "$(cat "$work/output")"
 ! grep -F -e 'Ctrl+Space' -e 'F9' "$work/output" >/dev/null ||
   fail "Korean input does not point to keys Omarchy already binds" "$(cat "$work/output")"
-[[ $(cat "$fcitx5_config") == $'[Hotkey/TriggerKeys]\n0=Hangul\n1=Shift+space' ]] ||
-  fail "Korean input switches with Hangul and Shift+Space, not Ctrl+Space" "$(cat "$fcitx5_config")"
+[[ $(cat "$fcitx5_config") == $'[Hotkey/TriggerKeys]\n0=Zenkaku_Hankaku\n1=Hangul\n2=Shift+space' ]] ||
+  fail "Korean input keeps fcitx5's other default triggers and adds Shift+Space, without Ctrl+Space" "$(cat "$fcitx5_config")"
 ! grep -Fx '2' "$work/output" >/dev/null ||
   fail "Korean input keeps the fcitx5 state probe out of the terminal" "$(cat "$work/output")"
 pass "Korean input installs and registers hangul"
@@ -106,7 +106,7 @@ grep -Fx 'pkg-add fcitx5-hangul' "$log" >/dev/null ||
   fail "Korean input does not duplicate an existing hangul entry" "$(cat "$log")"
 grep -F 'Korean input is ready' "$work/output-existing" >/dev/null ||
   fail "Korean input reports an existing setup as ready"
-[[ $(cat "$fcitx5_config") == $'[Hotkey/TriggerKeys]\n0=Hangul\n1=Shift+space' ]] ||
+[[ $(cat "$fcitx5_config") == $'[Hotkey/TriggerKeys]\n0=Zenkaku_Hankaku\n1=Hangul\n2=Shift+space' ]] ||
   fail "Korean input leaves its trigger keys unchanged on a rerun" "$(cat "$fcitx5_config")"
 pass "Korean input setup is idempotent"
 
@@ -148,6 +148,14 @@ triggers=$(sed -n '/^\[Hotkey\/TriggerKeys\]$/,$p' "$fcitx5_config")
   fail "Korean input leaves a single trigger section" "$(cat -A "$fcitx5_config")"
 grep -F 'ShareInputState=No' "$fcitx5_config" >/dev/null ||
   fail "Korean input keeps sections that follow the trigger keys" "$(cat -A "$fcitx5_config")"
+# fcitx5 also reads a bare TriggerKeys= under [Hotkey] as an empty list rather
+# than its built-in one, so nothing beyond Korean's own keys comes back.
+printf '%s\n' '[Hotkey]' 'TriggerKeys=' 'EnumerateWithTriggerKeys=True' >"$fcitx5_config"
+rm -f "$TEST_STATE/hangul-added"
+"$ROOT/bin/omarchy-setup-input-hangul" >/dev/null
+
+[[ $(cat "$fcitx5_config") == $'[Hotkey]\nEnumerateWithTriggerKeys=True\n\n[Hotkey/TriggerKeys]\n0=Hangul\n1=Shift+space' ]] ||
+  fail "Korean input treats a bare TriggerKeys= as an explicit empty list" "$(cat -A "$fcitx5_config")"
 pass "Korean input keeps the rest of an existing fcitx5 config"
 
 rm -f "$TEST_STATE/hangul-added"

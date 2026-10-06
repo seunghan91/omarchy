@@ -32,8 +32,17 @@ updated_config=$(awk '
   {
     line = trim($0)
     if (line ~ /^\[.*\]$/) {
+      section = line
       in_triggers = (line == "[Hotkey/TriggerKeys]")
-      if (in_triggers) next
+      if (in_triggers) {
+        saw_triggers = 1
+        next
+      }
+    }
+    # A bare TriggerKeys= under [Hotkey] is also the list, set empty.
+    if (section == "[Hotkey]" && line ~ /^TriggerKeys[ \t]*=/) {
+      saw_triggers = 1
+      next
     }
     if (in_triggers) {
       split_at = index(line, "=")
@@ -53,6 +62,13 @@ updated_config=$(awk '
     last_blank = (line == "")
   }
   END {
+    # Without the section fcitx5 uses its built-in list, so start from that.
+    if (!saw_triggers) {
+      keys[0] = "Control+space"
+      keys[1] = "Zenkaku_Hankaku"
+      keys[2] = "Hangul"
+      max_index = 2
+    }
     n = 0
     for (i = 0; i <= max_index; i++) {
       if (!(i in keys) || keys[i] == "" || is_ctrl_space(keys[i]) || (keys[i] in seen)) continue
