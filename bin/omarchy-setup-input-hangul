@@ -7,6 +7,67 @@ set -euo pipefail
 
 omarchy-pkg-add fcitx5-hangul
 
+# fcitx5 switches input methods on Ctrl+Space by default, which is also the
+# tmux and herdr prefix, so drop it and switch with the 한/영 key (Hangul) or
+# Shift+Space, the same keys ibus-hangul uses. Other trigger keys and settings
+# stay; the trigger list is rewritten as one section at the end of the file.
+# fcitx5 reads this file when it starts, which the restart below takes care of.
+fcitx5_config="$HOME/.config/fcitx5/config"
+mkdir -p "$(dirname "$fcitx5_config")"
+if [[ ! -f $fcitx5_config ]]; then
+  : >"$fcitx5_config"
+fi
+updated_config=$(awk '
+  function trim(text) {
+    sub(/\r$/, "", text)
+    gsub(/^[ \t]+|[ \t]+$/, "", text)
+    return text
+  }
+  function is_ctrl_space(key,   normalized) {
+    normalized = tolower(key)
+    gsub(/_/, "+", normalized)
+    return normalized == "control+space" || normalized == "ctrl+space"
+  }
+  BEGIN { max_index = -1 }
+  {
+    line = trim($0)
+    if (line ~ /^\[.*\]$/) {
+      in_triggers = (line == "[Hotkey/TriggerKeys]")
+      if (in_triggers) next
+    }
+    if (in_triggers) {
+      split_at = index(line, "=")
+      if (split_at > 0) {
+        entry = trim(substr(line, 1, split_at - 1))
+        if (entry ~ /^[0-9]+$/) {
+          value = trim(substr(line, split_at + 1))
+          if (value ~ /^".*"$/) value = substr(value, 2, length(value) - 2)
+          keys[entry + 0] = value
+          if (entry + 0 > max_index) max_index = entry + 0
+        }
+      }
+      next
+    }
+    print
+    printed = 1
+    last_blank = (line == "")
+  }
+  END {
+    n = 0
+    for (i = 0; i <= max_index; i++) {
+      if (!(i in keys) || keys[i] == "" || is_ctrl_space(keys[i]) || (keys[i] in seen)) continue
+      triggers[++n] = keys[i]
+      seen[keys[i]] = 1
+    }
+    if (!("Hangul" in seen)) triggers[++n] = "Hangul"
+    if (!("Shift+space" in seen)) triggers[++n] = "Shift+space"
+    if (printed && !last_blank) print ""
+    print "[Hotkey/TriggerKeys]"
+    for (i = 1; i <= n; i++) print (i - 1) "=" triggers[i]
+  }
+' "$fcitx5_config")
+printf '%s\n' "$updated_config" >"$fcitx5_config"
+
 # fcitx5 only scans for engines at startup, so the one just installed is
 # invisible to the running instance until it comes back up.
 omarchy-restart-xcompose
@@ -62,7 +123,17 @@ if ! jq -e '.data[1] | any(.[0] == "hangul")' <<<"$group_info" >/dev/null; then
     Save >/dev/null
 fi
 
-# The 한/영 key sends the Hangul keysym, which fcitx5 already treats as a
-# toggle out of the box, alongside Ctrl+Space for keyboards without one.
-echo "Korean input is ready. Press the 한/영 key or Ctrl+Space to switch between English and Korean."
-echo "While typing Korean, press the 한자 key or F9 to convert to Hanja."
+# fcitx5 drops engine names it has not discovered without an error, so read the
+# group back before calling the setup done.
+if ! busctl --user --json=short call \
+  org.fcitx.Fcitx5 \
+  /controller \
+  org.fcitx.Fcitx.Controller1 \
+  InputMethodGroupInfo \
+  s "$group" | jq -e '.data[1] | any(.[0] == "hangul")' >/dev/null; then
+  echo "Fcitx 5 did not pick up the Hangul engine. Log out, log back in, and try again." >&2
+  exit 1
+fi
+
+echo "Korean input is ready. Press the 한/영 key or Shift+Space to switch between English and Korean."
+echo "While typing Korean, press the 한자 key to convert to Hanja."

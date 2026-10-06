@@ -63,7 +63,7 @@ Omarchy runs the [fcitx5](https://fcitx-im.org/) input method framework as part 
 
 ### Typing in Korean
 
-Korean is one step away: pick _Setup > Input Method > Hangul (Korean)_ in the Omarchy menu (or run `omarchy setup input hangul`), and Omarchy installs the [fcitx5-hangul](https://github.com/fcitx/fcitx5-hangul) engine and adds it to your input methods. You keep typing English until you press the 한/영 key — or Ctrl+Space on keyboards without one — which toggles Hangul on and off. While typing Korean, the 한자 key (or F9) offers Hanja for what you just typed. Caps Lock stays the compose key, as on every other layout.
+Korean is one step away: pick _Setup > Input Method > Hangul (Korean)_ in the Omarchy menu (or run `omarchy setup input hangul`), and Omarchy installs the [fcitx5-hangul](https://github.com/fcitx/fcitx5-hangul) engine and adds it to your input methods. You keep typing English until you press the 한/영 key — or Shift+Space on keyboards without one — which toggles Hangul on and off. Ctrl+Space no longer switches input methods once Hangul is set up, so it stays the tmux and herdr prefix. While typing Korean, the 한자 key offers Hanja for what you just typed. Caps Lock stays the compose key, as on every other layout.
 
 Keyboards without dedicated 한/영 and 한자 keys can put them on Right Alt and Right Ctrl, the way Korean Windows does, with an xkb option in `~/.config/hypr/input.lua`:
 
